@@ -1,0 +1,11 @@
+Build/
+.DS_Store
+*.dSYM/
+*.zip
+settings.json
+proxy.yaml
+Browser-*/
+mihomo
+.env
+.env.*
+*.log
