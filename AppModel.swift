@@ -77,17 +77,11 @@ import UserNotifications
                 while !Task.isCancelled {
                     querying = true; nextCheck = nil
                     if preferences.proxy {
-                        if !proxy.isRunning { try await setupProxy(); try await rotate(reason: "首次选择线路", coolCurrent: false) }
+                        if !proxy.isRunning { try await setupProxy() }
                         if currentNode == "未启用代理" || currentNode.isEmpty || !eligibleNodes.contains(where: { $0.name == currentNode && $0.available }) {
-                            if !eligibleNodes.contains(where: \.available), let earliest = eligibleNodes.compactMap(\.coolingUntil).min() {
-                                querying = false; nextCheck = earliest
-                                log("所有可选节点暂时不可用，等待冷却结束。", warning: true)
-                                try await Task.sleep(nanoseconds: UInt64(max(1, earliest.timeIntervalSinceNow)) * 1_000_000_000)
-                                querying = true; nextCheck = nil
-                            }
-                            try await rotate(reason: "选择可用线路", coolCurrent: false)
+                            try await selectRouteWhenReady(reason: "选择可用线路")
                         }
-                        if preferences.timedRotation && Date().timeIntervalSince(lastRotation) >= Double(preferences.rotateMinutes * 60) { try await rotate(reason: "定时轮换", coolCurrent: false) }
+                        if preferences.timedRotation && Date().timeIntervalSince(lastRotation) >= Double(preferences.rotateMinutes * 60) { try await selectRouteWhenReady(reason: "定时轮换") }
                     }
                     try await browser.start(proxy: preferences.proxy ? "http://127.0.0.1:\(proxy.port)" : nil)
                     rounds += 1; log("第 \(rounds) 轮查询开始 · \(preferences.proxy ? currentNode : "系统网络")")
@@ -137,6 +131,8 @@ import UserNotifications
                         browser.stop()
                         if preferences.proxy {
                             do { try await rotate(reason: "网站拒绝当前线路", coolCurrent: true) }
+                            catch is CancellationError { throw CancellationError() }
+                            catch NodeRotationError.coolingUntil(_) { log("所有可选节点正在冷却，到期后自动重新选择线路。", warning: true) }
                             catch { log(error.localizedDescription, warning: true) }
                         }
                     } else if preferences.proxy, let index = nodes.firstIndex(where: { $0.name == currentNode }) { nodes[index].failures = 0 }
@@ -174,6 +170,7 @@ import UserNotifications
         log(proxyMessage)
     }
     func rotate(reason: String, coolCurrent: Bool) async throws {
+        try Task.checkCancellation()
         if coolCurrent, let index = nodes.firstIndex(where: { $0.name == currentNode }) {
             nodes[index].failures += 1
             let minutes = [5,10,20,30][min(nodes[index].failures-1, 3)]
@@ -181,25 +178,43 @@ import UserNotifications
             log("\(currentNode) 进入 \(minutes) 分钟冷却", warning: true)
         }
         let eligible = eligibleNodes
-        let start = eligible.firstIndex(where: { $0.name == currentNode }).map { $0 + 1 } ?? 0
-        let ordered = eligible.isEmpty ? [] : Array(eligible.dropFirst(start)) + Array(eligible.prefix(start))
-        for node in ordered where node.available {
+        guard !eligible.isEmpty else { throw AppError.message("没有可选节点，请检查订阅、筛选和排除设置") }
+        for node in NodeRotation.candidates(eligible, after: currentNode) {
             try Task.checkCancellation()
             do {
                 let delay = try await proxy.delay(node.name)
                 try await proxy.select(node.name)
-                if let i = nodes.firstIndex(where: { $0.name == node.name }) { nodes[i].delay = delay }
+                try Task.checkCancellation()
+                if let i = nodes.firstIndex(where: { $0.name == node.name }) { nodes[i].delay = delay; nodes[i].coolingUntil = nil }
                 browser.stop() // Close all owned old HTTP connections, then re-establish shop session.
                 currentNode = node.name; lastRotation = Date(); log("已切换到 \(node.name) · \(reason)"); return
-            } catch {
+            } catch is CancellationError { throw CancellationError() }
+            catch {
+                try Task.checkCancellation()
                 if let i = nodes.firstIndex(where: { $0.name == node.name }) { nodes[i].coolingUntil = Date().addingTimeInterval(60); nodes[i].delay = -1 }
             }
         }
-        throw AppError.message("没有可用节点：请检查订阅、筛选条件，或等待节点冷却结束")
+        let earliest = eligibleNodes.compactMap(\.coolingUntil).min() ?? Date().addingTimeInterval(60)
+        throw NodeRotationError.coolingUntil(earliest)
+    }
+    func selectRouteWhenReady(reason: String) async throws {
+        try await NodeRotation.selectWhenReady(attempt: {
+            try await self.rotate(reason: reason, coolCurrent: false)
+        }, onWait: { deadline in
+            self.querying = false; self.nextCheck = deadline
+            self.proxyMessage = "节点冷却中，到期后自动重试"
+            self.log("所有可选节点暂时不可用，冷却结束后自动重新选择线路。", warning: true)
+        })
+        querying = true; nextCheck = nil
+        proxyMessage = "当前线路：\(currentNode)"
     }
     func refreshProxy() {
         guard !running, !busyProxy else { return }
-        Task { do { try await setupProxy(); try await rotate(reason: "更新订阅", coolCurrent: false) } catch { self.proxyMessage = error.localizedDescription; self.error = error.localizedDescription; self.log(error.localizedDescription, warning: true) } }
+        Task {
+            do { try await setupProxy(); try await rotate(reason: "更新订阅", coolCurrent: false) }
+            catch NodeRotationError.coolingUntil(_) { proxyMessage = "节点暂时不可用，开始监控后将自动等待冷却并重试"; log(proxyMessage, warning: true) }
+            catch { self.proxyMessage = error.localizedDescription; self.error = error.localizedDescription; self.log(error.localizedDescription, warning: true) }
+        }
     }
     func addSubscription(name: String, url: String) -> Bool {
         guard let parsed = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)), parsed.scheme == "https", parsed.host != nil else { error = "请输入有效的 HTTPS 订阅地址"; return false }

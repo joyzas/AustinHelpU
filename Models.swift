@@ -24,11 +24,6 @@ struct Preferences: Codable {
     var pauseOnHit = false; var preventSleep = true; var repeatAlert = false
     var nodeFilter = ""; var excludedNodes: [String] = []
 }
-struct Node: Identifiable {
-    var id: String { name }; var name: String; var delay: Int? = nil
-    var failures = 0; var coolingUntil: Date? = nil
-    var available: Bool { coolingUntil == nil || coolingUntil! <= Date() }
-}
 struct LogEntry: Identifiable {
     let id = UUID(); let date = Date(); var text: String; var warning = false
 }

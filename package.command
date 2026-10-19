@@ -13,7 +13,7 @@ if output.exists():
     raise SystemExit('输出目录已存在，请先检查，不覆盖已有交付')
 output.mkdir(parents=True)
 shutil.copytree(app, output / 'AustinHelpU.app')
-files = ['Main.swift', 'Models.swift', 'Browser.swift', 'Proxy.swift', 'AppModel.swift', 'Views.swift', 'Tests.swift', 'BrowserTests.swift', 'build.command', 'test.command', 'package.command', 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY.md']
+files = ['Main.swift', 'NodeRotation.swift', 'Models.swift', 'Browser.swift', 'Proxy.swift', 'AppModel.swift', 'Views.swift', 'Tests.swift', 'RotationTests.swift', 'BrowserTests.swift', 'build.command', 'test.command', 'package.command', 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY.md']
 resources = ['AppIcon.icns', 'brand.png', 'products.json', 'stores.json']
 for name in files + ['Resources/' + name for name in resources]:
     target = output / 'Source' / name

@@ -11,7 +11,7 @@ if [ -d /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ]; then SDK_PATH
 swiftc -swift-version 5 -parse-as-library -sdk "$SDK_PATH" \
   -target arm64-apple-macosx14.0 \
   -module-cache-path /tmp/xiaozhang-swift-cache \
-  Models.swift Browser.swift Proxy.swift AppModel.swift Views.swift Main.swift \
+  NodeRotation.swift Models.swift Browser.swift Proxy.swift AppModel.swift Views.swift Main.swift \
   -o "$APP/Contents/MacOS/AustinHelpU"
 for resource in AppIcon.icns brand.png products.json stores.json; do
   cp "Resources/$resource" "$APP/Contents/Resources/"
@@ -26,8 +26,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>cn.xiaozhang.watch</string>
 <key>CFBundleExecutable</key><string>AustinHelpU</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.6</string>
-<key>CFBundleVersion</key><string>7</string>
+<key>CFBundleShortVersionString</key><string>0.1.7</string>
+<key>CFBundleVersion</key><string>8</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSHighResolutionCapable</key><true/>

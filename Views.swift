@@ -78,7 +78,7 @@ struct ContentView: View {
                 Text("你忙你的，Austin 来蹲。").font(.system(size: 12, weight: .semibold))
                 Text("关掉窗口后，仍可在菜单栏找到 AustinHelpU。电脑需保持联网运行。").font(.system(size: 11)).foregroundStyle(muted).lineSpacing(5)
             }.padding(16).background(jade.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
-            HStack { Text("macOS · 预览版 0.1.6").font(.system(size: 10)).foregroundStyle(muted); Spacer(); Circle().fill(jade).frame(width: 5,height: 5) }.padding(.bottom, 20)
+            HStack { Text("macOS · 预览版 0.1.7").font(.system(size: 10)).foregroundStyle(muted); Spacer(); Circle().fill(jade).frame(width: 5,height: 5) }.padding(.bottom, 20)
         }.padding(.horizontal, 18).frame(width: 218).background(.white)
     }
     func nav(_ title: String, _ symbol: String) -> some View {
